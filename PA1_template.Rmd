@@ -1,0 +1,118 @@
+---
+title: "Reproducible Research-Peer Assignment 1"
+author: "Windnerd"
+date: "Tuesday, August 12, 2015"
+output: html_document
+---
+
+### Read in the activity dataset
+```{r, echo=TRUE}
+wd<-getwd()
+fn <-paste(wd, "activity.csv", sep ="\\", collapse = NULL)
+adata<-read.table(fn,sep = ",",header = TRUE,na.strings = "NA")
+```
+
+### Preprocessing Code
+```{r, echo=TRUE}
+adata$datestr<-as.Date(adata$date)
+names(adata)
+```
+
+### What is the mean total number of steps taken per day?
+```{r, echo=TRUE}
+# calculate the total number of steps taken per day
+numtotaldays<-length(adata$date)/(12*24)
+totalsteps<-sum(adata$steps, na.rm = TRUE)
+
+# create an array of total steps per day
+fdate = factor(format(adata$datestr,'%m%d'))
+fdate_uniq<-unique(fdate)
+daytotal = NULL
+for (i in 1:length(fdate_uniq))
+{
+    i_curdate<- which(fdate==fdate_uniq[i])   
+    daytotal[i]<-sum(adata$steps[i_curdate],na.rm= TRUE)
+}
+
+# plot a histogram of this array
+hist(daytotal,breaks=seq(min(daytotal),max(daytotal)+500,by=500),main="Histogram of Total Steps Taken Each Day",xlab="Total Steps Taken Each Day")
+
+# calculate mean and median values of this array
+median(daytotal)
+mean(daytotal)
+
+```
+
+### What is the average daily activity pattern?
+```{r, echo=TRUE}
+interval<-seq(0,2355,5)
+intervalavg=NULL
+for (i in 1:length(interval)){
+    i_curinterval<-which(adata$interval==interval[i])
+    intervalavg[i]<-mean(adata$steps[i_curinterval],na.rm=TRUE)    
+}
+plot(interval,intervalavg,main="Average Number of Steps Taken (All Days)",xlab="Time Interval")
+
+# find the maximum
+maxinterval<-max(intervalavg,na.rm=TRUE)
+timeofday<-interval[which(intervalavg==max(intervalavg,na.rm=TRUE))]
+```
+
+### Imputing missing values
+```{r, echo=TRUE}
+missdata<-is.na(adata$steps)
+missdatacount<-length(which(missdata==TRUE))
+
+# fill the missing data points with the mean from the appropriate 5 min interval
+missdata_i<-which(missdata==TRUE)
+okdata_i<-which(missdata==FALSE)
+adata$stepsfill=seq(1,length(adata$steps),1)
+adata$stepsfill[okdata_i]=adata$steps[okdata_i]
+
+for (i in 1:missdatacount){
+    fill_interval<-adata$interval[missdata_i[i]]
+    fill_step<-intervalavg[which(interval==fill_interval)]
+    adata$stepsfill[missdata_i[i]]<-fill_step    
+}
+
+daytotalfill = NULL
+for (i in 1:length(fdate_uniq))
+{
+    i_curdate<- which(fdate==fdate_uniq[i])   
+    daytotalfill[i]<-sum(adata$stepsfill[i_curdate],na.rm= TRUE)
+}
+
+# plot a histogram of this array
+hist(daytotalfill,breaks=seq(min(daytotalfill),max(daytotalfill)+500,by=500),main="Histogram of Total Steps Taken Each Day (filled nas)",xlab="Total Steps Taken Each Day")
+
+# calculate mean and median values of this array
+median(daytotalfill)
+mean(daytotalfill)
+```
+
+### Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+adata$weekday=rep(0,length(adata$steps))
+wkday<-weekdays(as.Date(adata$date))
+i_wkday<-which(wkday=="Saturday")
+adata$weekday[i_wkday]<-1
+i_wkday<-which(wkday=="Sunday")
+adata$weekday[i_wkday]<-1
+
+interval<-seq(0,2355,5)
+intervalavg_wkday=NULL
+intervalavg_wkndday=NULL
+for (i in 1:length(interval)){
+    # weekedays
+    i_curinterval<-which(adata$interval==interval[i] & adata$weekday==0)
+    intervalavg_wkday[i]<-mean(adata$stepsfill[i_curinterval],na.rm=TRUE)    
+    
+    #weekend days
+    i_curinterval<-which(adata$interval==interval[i] & adata$weekday==1)
+    intervalavg_wkndday[i]<-mean(adata$stepsfill[i_curinterval],na.rm=TRUE)    
+}
+par(mfrow=c(2,1))
+par(mar=c(4,4,3,3))
+plot(interval,intervalavg_wkday,main="Average Number of Steps Taken (Weekdays)-NA Filled Dataset",xlab="Time Interval")
+plot(interval,intervalavg_wkndday,main="Average Number of Steps Taken (Weekends)-NA Filled Dataset",xlab="Time Interval")
+```
